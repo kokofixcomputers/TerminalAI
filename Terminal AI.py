@@ -190,8 +190,13 @@ def modify_file(folder_path):
     if not os.path.exists(settings_file):
         settings = {
             "agree": False ,
-            "lan": "en"
+            "lan": "en",
+            "allow_cookie_storage": False,
         }
+        confirm = messagebox.askyesno("Cookie Storage", "Do you want to allow cookie storage? This will make sign in more faster")
+        if confirm == True:
+            settings['allow_cookie_storage'] = True
+            f.write(json_string)
         json_string = json.dumps(settings)
         with open(settings_file, 'w') as f:
             f.write(json_string)
@@ -374,6 +379,7 @@ def chat(
         is_retry: bool=False,
         retry_count: int=5,
         conversationid: str=conversationid,
+        print: bool=True,
 ):
 
     req_json = {
@@ -434,8 +440,10 @@ def chat(
         print("Request 10 Seconds Timeout")
 
     extracted_texts = extract(response)
-
-    print(extracted_texts)  # You can print the response content to see the result
+    if print:
+        print(extracted_texts)  # You can print the response content to see the result
+    else:
+        return extracted_texts
 
 
 def extract(req_response):
@@ -502,6 +510,75 @@ def change_llm(to, conversationid=conversationid):
         "searchEnabled": "true",
         "activeModel": mdl,
         })
+    
+def new_conversation_requests():
+        _header = {
+        "Accept": "*/*",
+        "Connection": "keep-alive",
+        "Host": "huggingface.co",
+        "Origin": "https://huggingface.co",  # Set the Origin header
+        "Referer": f"https://huggingface.co/chat",
+        "Sec-Fetch-Site": "same-origin",
+        "Content-Type": "application/json",
+        "Sec-Ch-Ua-Platform": "Windows",
+        "Sec-Ch-Ua": "Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Microsoft Edge\";v=\"116",
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Dest": "empty",
+        "Accept-Encoding": "gzip, deflate, br",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
+    }
+        _cookies = {
+        #"__stripe_mid": __stripe_mid,  # Replace with your actual cookie values
+        #"__stripe_sid": __stripe_sid,  # Replace with your actual cookie values"
+        "hf-chat": hf_chat,  # Replace with your actual cookie values
+        "token": token,
+}
+
+        resp = ""
+        while True:
+            try:
+                resp = requests.post("https://huggingface.co/chat/conversation", json={"model": "OpenAssistant/oasst-sft-6-llama-30b"}, headers=_header, cookies =_cookies)
+                # print("new conversation")
+                # print(resp.text)
+                logging.debug(resp.text)
+                cid = json.loads(resp.text)['conversationId']
+                __preserve_context(cid = cid, ending = "1_1")
+                return cid
+            except:
+                pass
+            
+def __preserve_context(cid: str = None, ending: str = "1_", ref_cid: str = ""):
+        # print("preserve_context")
+        headers = {
+            'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
+            'Accept': "*/*",
+        }
+        if ref_cid == "":
+            headers["Referer"] = "https://huggingface.co/chat"
+        else:
+            headers["Referer"] = f"https://huggingface.co/chat/conversation/{ref_cid}"
+        # print(headers)
+        cookie = {
+            'hf-chat': hf_chat,
+        }
+        if cid is None:
+            cid = conversationid
+        url = f"https://huggingface.co/chat/conversation/{cid}/__data.json?x-sveltekit-invalidated={ending}"
+        # response = requests.get(url, cookies = cookie, headers = headers )
+        response = requests.get(url, cookies = cookie, headers = headers, data = {})
+        # print(response.text)
+        import time
+        
+        # f = open(f"test{str(time.time())}.json", "w", encoding="utf-8")
+        # f.write(json.dumps(response.json(), indent=4, ensure_ascii=False))
+        # f.close()
+        
+        if response.status_code == 200:
+            # print("OK")
+            return {'message': "Context Successfully Preserved", "status":200}
+        else:
+            return {'message': "Internal Error", "status": 500}
     
 def new_conversation():
     headers = {
@@ -711,20 +788,39 @@ def open_gui_class():
         self.root.geometry("1000x850")  # Larger window size
         
         self.style = ThemedStyle(self.root)
+        #self.style = ThemedStyle("breeze")
+        #self.style.set_theme("equilux")
         self.style.set_theme("equilux")
+
+        try:
+            self.background_image = tk.PhotoImage(file="background.png")  # Replace with your background image
+        except:
+            self.background_image = tk.PhotoImage(file=os.path.expanduser("~/Documents/TerminalAi/background.png"))
         
-        self.background_image = tk.PhotoImage(file="background.png")  # Replace with your background image
+        
         self.background_label = tk.Label(self.root, image=self.background_image)
         self.background_label.place(relwidth=1, relheight=1)
         
         self.sidebar = tk.Frame(self.root, bg="gray", width=200)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
+
+        self.sidebar_label = tk.Label(self.sidebar, text="Options:", bg="gray")
+        self.sidebar_label.pack(pady=5)
         
         self.new_chat_button = tk.Button(self.sidebar, text="New Chat", command=self.start_new_chat)
-        self.new_chat_button.pack(pady=10)
-        
-        self.sidebar_label = tk.Label(self.sidebar, text="Conversation Sidebar", bg="gray")
-        self.sidebar_label.pack(pady=5)
+        self.new_chat_button.pack()
+
+        self.change_conversation_button = tk.Button(self.sidebar, text="Change Conversation", command=self.change_conversation)
+        self.change_conversation_button.pack()
+
+        self.close_gui_button = tk.Button(self.sidebar, text="Close GUI", command=self.close_gui)
+        self.close_gui_button.pack()
+
+        self.quit_button = tk.Button(self.sidebar, text="Quit", command=quit_webdrivers)
+        self.quit_button.pack()
+
+        self.uninstall_button = tk.Button(self.sidebar, text="Uninstall TerminalAI", command=self.uninstall_button_press)
+        self.uninstall_button.pack()
         
         self.chat_area = scrolledtext.ScrolledText(self.root, state=tk.DISABLED, wrap=tk.WORD)
         self.chat_area.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=20, pady=20)  # Place at the top
@@ -757,17 +853,15 @@ def open_gui_class():
         # Convert the SVG data to PNG using cairosvg
         #self.image.save(os.path.join(folder_path, "background.png"))
         #image_data = base64.b64decode(base64_send)
-        send_button_image = Image.open("send-button.png")
+        try:
+            send_button_image = Image.open("send-button.png")
+        except:
+            send_button_image = Image.open(os.path.expanduser("~/Documents/TerminalAi/send-button.png"))
         #send_button_image = Image.open(io.BytesIO(Svg2.generate(svg_data).read()))
         #self.send_button = ImageTk.PhotoImage(image)
         #send_button_image = Image.open(Image.open(base64_send))  # Replace with your send button image
         send_button_image = send_button_image.resize((24, 24), Image.LANCZOS)  # Resize the image
         send_button_image = ImageTk.PhotoImage(send_button_image)
-
-        def svg_to_png(self, svg_data):
-            # Convert the SVG data to PNG using cairosvg
-            output = cairosvg.svg2png(bytestring=svg_data.encode())
-            return output
 
         def on_send_button_click(self):
             # Handle the send button click event
@@ -785,6 +879,24 @@ def open_gui_class():
         self.load_chat_history()  # Load conversation history from file
         self.root.bind("<Return>", self.send_message)  # Bind Enter key to send message
 
+    def uninstall_button_press():
+            root = tk.Tk()
+            root.attributes('-topmost', False)
+
+            # Call uninstall function here when needed
+            uninstall()
+
+            root.mainloop()  # Start the main event loop
+
+    def change_conversation(self):
+            new_id = simpledialog.askstring("New Conversation ID", "Enter new conversation ID:")
+            if new_id is not None:
+                self.conversation_id = new_id
+                print("Conversation ID set to:", self.conversation_id)
+
+    def close_gui(self):
+            self.root.destroy()
+
     def send_message(self, event=None):
         message = self.text_entry.get()
         self.chat_area.config(state=tk.NORMAL)
@@ -792,7 +904,12 @@ def open_gui_class():
         self.chat_area.config(state=tk.DISABLED)
         
         # Simulate AI response (replace this with your actual AI interaction)
-        ai_response = f"AI: Hello, you said '{message}'."
+        #ai_response = f"AI: Hello, you said '{message}'."
+        if not len(sys.argv) > 1:
+            ai_response = "AI: " + chat(message, message, print=False)
+        else:
+            logger.debug("System: " + 'In system mode, only system commands work')
+            ai_response = "System: " + "In system mode, only system commands work"
         self.chat_area.config(state=tk.NORMAL)
         self.chat_area.insert(tk.END, ai_response + "\n")
         self.chat_area.config(state=tk.DISABLED)
@@ -835,10 +952,10 @@ while True:
         if not len(sys.argv) > 1:
             chat("Hello", prompt)
         else:
-            print("In system mode only system commands work")
+            print("In system mode, only system commands work")
     else:
         if "new_conversation" in prompt:
-            new_conversation()
+            new_conversation_requests()
         elif "change_conversation" in prompt:
             conversationid = prompt.split(" ")[2]
             change_conversation(conversationid)

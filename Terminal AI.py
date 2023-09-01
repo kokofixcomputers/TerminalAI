@@ -354,7 +354,7 @@ if len(sys.argv) > 1:
 else:
     print("Attempting to login... This may take a few miniutes")
     logger.debug('Attempting to login via firefox using webdrivers')
-    cookies = Login("jovego6268@carpetra.com", "KokoFixComputers2021!")
+    cookies = Login("username", "password")
     print("Login Successful!")
 
 

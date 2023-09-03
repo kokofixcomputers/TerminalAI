@@ -3,3 +3,8 @@ contact_links:
   - name: Issues tracker
     url: https://github.com/kokofixcomputers/TerminalAI/issues
     about: Bugs, Issues, Questions here
+    
+  - name: New Security Advisory
+    url: https://github.com/kokofixcomputers/TerminalAI/security/advisories/new
+    about: Please report any security issues here.
+    

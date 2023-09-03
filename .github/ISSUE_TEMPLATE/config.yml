@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Issues tracker
+    url: https://github.com/kokofixcomputers/TerminalAI/issues
+    about: Bugs, Issues, Questions here

@@ -10,3 +10,6 @@ Run :
 `cd TerminalAI`
 
 `python Terminal AI.py`
+
+
+You may need to manually install dependencies

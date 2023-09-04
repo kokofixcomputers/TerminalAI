@@ -12,6 +12,7 @@ from selenium.webdriver.common.keys import Keys
 import time
 import atexit
 import webbrowser
+import shlex
 import os
 import platform
 from tkinter import messagebox
@@ -147,6 +148,8 @@ else:
     cmd = ['firefox', '--version']
 
 # Run the command to check if Firefox is installed
+cmd = " ".join(cmd)
+cmd = shlex.split(cmd)
 result = subprocess.run(cmd, stdout=subprocess.PIPE)
 
 # If the command succeeded and returned a path, Firefox is installed
@@ -467,6 +470,8 @@ def test_connection():
         elif response.status_code == 200:
             return True
 
+import shlex
+
 def install_firefox():
     # URLs of the Firefox installer executable files for each operating system
     firefox_urls = {
@@ -477,9 +482,9 @@ def install_firefox():
 
     # File name of the Firefox installer executable file for each operating system
     firefox_filenames = {
-        'Windows': 'FirefoxSetup.exe',
-        'Darwin': 'Firefox.dmg',
-        'Linux': 'firefox.tar.bz2'
+        'Windows': 'Firefox Setup 117.0.exe',
+        'Darwin': 'Firefox 117.0.dmg',
+        'Linux': 'firefox-117.0.tar.bz2'
     }
 
     # Temporary directory to save the installer file
@@ -508,11 +513,13 @@ def install_firefox():
         if os.getuid() == 0:
             # If running as root, no need to prompt for admin username and password
             logger.debug('Installing Firefox')
-            subprocess.run(install_command, check=True)
+            install_command = shlex.split(install_command)
+            subprocess.run(install_command, check=True, shell=False)
         else:
             # If not running as root, prompt for admin username and password if needed
             try:
-                subprocess.run(install_command, check=True)
+                install_command = shlex.split(install_command)
+                subprocess.run(install_command, check=True, shell=False)
             except subprocess.CalledProcessError:
                 logger.debug('Prompting for admin username and password')
                 admin_username = input("Enter admin username: ")
@@ -590,10 +597,7 @@ else:
     if get_cookies_from_file(on_error="Fail") == "Fail":
         print("Attempting to login... This may take a few miniutes")
         logger.debug('Attempting to login via firefox using webdrivers')
-        if not username_input is None or not username_input == '' or not password_input is None or not password_input == '':
-            cookies = Login(username_input, password_input)
-        else:
-            cookies = Login("enter default username", "enter default password") 
+        cookies = Login("enter default username", "enter default password")
         print("Login Successful!")
     else:
         cookies_from_file = get_cookies_from_file(on_error="Fail")
@@ -604,8 +608,6 @@ else:
             logger.debug('Attempting to login via firefox using webdrivers')
             if not username_input is None or not username_input == '' or not password_input is None or not password_input == '':
                 cookies = Login(username_input, password_input)
-            else:
-                cookies = Login("enter default username", "enter default password")
             print("Login Successful!")
 
 def change_account():
@@ -899,7 +901,8 @@ def uninstall(in_test=False, root=None):
   logger.debug('Uninstall function has been called and in_test is ' + str(in_test))
   if in_test != True:
       print("Not in in_test")
-  root.withdraw()
+  if root != None or '':
+    root.withdraw()
 
   confirm = messagebox.askyesno("Uninstall All Data", "Are you sure you want to uninstall all data?")
   logger.debug('Uninstall comfirmation has been created')
@@ -1096,7 +1099,7 @@ def open_gui_class():
         self.close_gui_button = tk.Button(self.sidebar, text="Close GUI", command=self.close_gui)
         self.close_gui_button.pack()
 
-        self.quit_button = tk.Button(self.sidebar, text="Quit", command=quit_webdrivers)
+        self.quit_button = tk.Button(self.sidebar, text="Quit", command=self.quit_whole_thing)
         self.quit_button.pack()
 
         self.uninstall_button = tk.Button(self.sidebar, text="Uninstall TerminalAI", command=self.uninstall_button_press)
@@ -1142,6 +1145,13 @@ def open_gui_class():
         try:
             send_button_image = Image.open("send-button.png")
         except:
+            send_button_image = None
+        finally:
+            if send_button_image is None:
+                send_button_image.close()
+                send_button_image = None
+
+        if not send_button_image:
             send_button_image = Image.open(os.path.expanduser("~/Documents/TerminalAi/send-button.png"))
         #send_button_image = Image.open(io.BytesIO(Svg2.generate(svg_data).read()))
         #self.send_button = ImageTk.PhotoImage(image)
@@ -1164,6 +1174,10 @@ def open_gui_class():
         
         self.load_chat_history()  # Load conversation history from file
         self.root.bind("<Return>", self.send_message)  # Bind Enter key to send message
+
+    def quit_whole_thing(self):
+        quit_webdrivers()
+        sys.exit(0)
 
     def uninstall_button_press(self):
             root = tk.Tk()
@@ -1303,6 +1317,7 @@ def open_gui_class():
                 print("Conversation ID set to:", self.conversation_id)
 
     def close_gui(self):
+            root.destroy()
             self.root.destroy()
 
     def send_message(self, event=None):
